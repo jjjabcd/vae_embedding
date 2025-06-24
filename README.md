@@ -158,9 +158,6 @@ After training the models, you can evaluate their performance and get prediction
 
 ### Evaluate MLP Model
 ```bash
-# Make sure you're in the vae_embedding directory
-cd vae_embedding
-
 # Evaluate the trained MLP model
 python src/test.py --experiment models/cv10_logS_6679_cvae_emb_logp_196 --model MLP
 ```
