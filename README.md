@@ -168,6 +168,31 @@ python src/test.py --experiment models/cv10_logS_6679_cvae_emb_logp_196_resnet -
 - `--experiment`: Directory path containing the trained model(s) and configuration
 - `--model`: Model type to evaluate ('ResNet', 'MLP', or 'LR')
 
+**Important: config.json File**
+The evaluation script requires a `config.json` file in the experiment directory. This file should be automatically created during training, but if it's missing, you need to create it manually with the following content:
+
+```json
+{
+    "property": "logS",
+    "data": "data/logS/processed_with_cvae/final_logS_cvae_logp_196_6679.csv",
+    "save_dir": "models/cv10_logS_6679_cvae_emb_logp_196",
+    "feature": "vae_emb",
+    "fold_indices_dir": "data/logS/fold_indices_cvae/",
+    "model": "MLP",
+    "fold_num": 10,
+    "repeat_folds": 1,
+    "start_fold": 1,
+    "mlp_max_iter": 700,
+    "epochs": 2000,
+    "learning_rate": 0.00001,
+    "batch_size": 47,
+    "l2_wd": 0.00001,
+    "loss": "rmse"
+}
+```
+
+Save this as `config.json` in your experiment directory (e.g., `models/cv10_logS_6679_cvae_emb_logp_196/config.json`).
+
 
 ## Troubleshooting
 
@@ -220,18 +245,22 @@ The code has been updated for TensorFlow 2.x compatibility:
 - Activate the conda environment: `conda activate chemvae`
 - Use the module import format: `python -m chemvae.train_vae_new`
 
-#### 5. Memory Issues
+#### 5. Missing config.json File
+**Problem:** `FileNotFoundError: config.json` when running evaluation.
+
+**Solution:** 
+- The training script should create this file automatically, but sometimes it fails
+- Create the file manually in your experiment directory with the training parameters
+- Use the template provided in the Evaluation section above
+- Adjust the paths and parameters to match your specific experiment
+
+#### 6. Memory Issues
 **Problem:** Out of memory errors during training.
 
 **Solution:** 
 - GPU memory growth is automatically enabled
 - Reduce batch size in `exp.json` if needed
 - Monitor GPU memory usage with `nvidia-smi`
-
-### Performance Notes
-- Training on RTX 4090: ~39 seconds per epoch for ZINC dataset
-- CPU training is significantly slower but still functional
-- Modern GPUs (RTX 30xx/40xx series) are fully supported
 
 ## License
 Apache License Version 2.0
