@@ -1,0 +1,17 @@
+{
+    "property": "logS",
+    "data": "data/logS/processed_with_cvae/final_logS_cvae_logp_196_6679.csv",
+    "save_dir": "models/cv10_logS_6679_cvae_emb_logp_196",
+    "feature": "vae_emb",
+    "fold_indices_dir": "data/logS/fold_indices_cvae/",
+    "model": "MLP",
+    "fold_num": 10,
+    "repeat_folds": 1,
+    "start_fold": 1,
+    "mlp_max_iter": 700,
+    "epochs": 2000,
+    "learning_rate": 0.00001,
+    "batch_size": 47,
+    "l2_wd": 0.00001,
+    "loss": "rmse"
+} 
