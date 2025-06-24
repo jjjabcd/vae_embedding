@@ -1,7 +1,7 @@
-from keras.callbacks import Callback, ModelCheckpoint
+from tensorflow.keras.callbacks import Callback, ModelCheckpoint
 import numpy as np
 import pandas as pd
-from keras import backend as K
+from tensorflow.keras import backend as K
 import os
 
 
@@ -108,6 +108,11 @@ class EncoderDecoderCheckpoint(ModelCheckpoint):
         self.encoder = encoder_model
         self.decoder = decoder_model
         self.prop_pred_model = prop_pred_model
+        # TensorFlow 2.x compatibility: add required attributes
+        self.save_freq = "epoch"
+        self.load_weights_on_restart = False
+        self.save_weights_only = False
+        self.period = 1
 
     def on_epoch_end(self, epoch, logs=None):
         logs = logs or {}

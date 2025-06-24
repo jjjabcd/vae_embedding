@@ -1,12 +1,7 @@
-from keras.layers import Input, Lambda
-from keras.layers.core import Dense, Flatten, RepeatVector, Dropout
-from keras.layers.convolutional import Convolution1D
-from keras.layers.recurrent import GRU
-from keras.layers.normalization import BatchNormalization
-from keras.models import load_model
-from keras import backend as K
-from keras.models import Model
-from keras.layers.merge import Concatenate
+import tensorflow as tf
+from tensorflow.keras.layers import Input, Lambda, Dense, Flatten, RepeatVector, Dropout, GRU, BatchNormalization, Concatenate, Conv1D
+from tensorflow.keras.models import load_model, Model
+from tensorflow.keras import backend as K
 from .tgru_k2_gpu import TerminalGRU
 
 
@@ -19,7 +14,7 @@ def encoder_model(params):
         'NCHARS']), name='input_molecule_smi')
 
     # Convolution layers
-    x = Convolution1D(int(params['conv_dim_depth'] *
+    x = Conv1D(int(params['conv_dim_depth'] *
                           params['conv_d_growth_factor']),
                       int(params['conv_dim_width'] *
                           params['conv_w_growth_factor']),
@@ -29,7 +24,7 @@ def encoder_model(params):
         x = BatchNormalization(axis=-1, name="encoder_norm0")(x)
 
     for j in range(1, params['conv_depth'] - 1):
-        x = Convolution1D(int(params['conv_dim_depth'] *
+        x = Conv1D(int(params['conv_dim_depth'] *
                               params['conv_d_growth_factor'] ** (j)),
                           int(params['conv_dim_width'] *
                               params['conv_w_growth_factor'] ** (j)),
@@ -180,9 +175,11 @@ def variational_layers(z_mean, enc, kl_loss_var, params):
 
     def sampling(args):
         z_mean, z_log_var = args
-
-        epsilon = K.random_normal_variable(shape=(params['batch_size'], params['hidden_dim']),
-                                           mean=0., scale=1.)
+        batch_size = tf.shape(z_mean)[0]
+        dim = tf.shape(z_mean)[1]
+        
+        epsilon = K.random_normal(shape=(batch_size, dim),
+                                  mean=0., stddev=1.)
         # insert kl loss here
 
         z_rand = z_mean + K.exp(z_log_var / 2) * kl_loss_var * epsilon

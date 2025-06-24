@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 import tensorflow as tf
-from tensorflow.metrics import accuracy
 import argparse
 from resnet import ResNet20
 import ast
@@ -18,7 +17,7 @@ from utils import accuracy_logS, split_into_folds
 import logging
 from sklearn.neural_network import MLPRegressor, MLPClassifier
 from sklearn.linear_model import LinearRegression, LogisticRegression
-from sklearn.metrics import r2_score, mean_squared_error, accuracy_score
+from sklearn.metrics import r2_score, mean_squared_error, accuracy_score, f1_score, roc_auc_score
 import joblib
 
 
@@ -456,12 +455,12 @@ def train_mlp(params):
             X_train, X_test, y_train, y_test = load_fold_data(params.data, fold_num, params.feature, params.fold_indices_dir, params.property)
 
             model = MLPRegressor(solver = 'sgd', max_iter = params.mlp_max_iter).fit(X_train, y_train)
-            filename = os.path.join(params.save_dir, f'/models/mlp/mlp_fold{i}.sav')
+            filename = os.path.join(params.save_dir, f'models/mlp/mlp_fold{fold_num}.sav')
             joblib.dump(model, filename)
 
             preds = model.predict(X_test)
             r2_list.append(r2_score(y_test, preds))
-            rmse_list.append(mean_squared_error(y_test, preds, squared = False))
+            rmse_list.append(np.sqrt(mean_squared_error(y_test, preds)))
 
         pd.DataFrame({'fold': np.arange(1, num_folds + 1), 
                   'test_r2': r2_list,
@@ -475,7 +474,7 @@ def train_mlp(params):
             X_train, X_test, y_train, y_test = load_fold_data(params.data, fold_num, params.feature, params.fold_indices_dir, params.property)
 
             model = MLPClassifier(solver = 'sgd', max_iter = params.mlp_max_iter).fit(X_train, y_train)
-            filename = os.path.join(params.save_dir, f'/models/mlp/mlp_fold{i}.sav')
+            filename = os.path.join(params.save_dir, f'models/mlp/mlp_fold{fold_num}.sav')
             joblib.dump(model, filename)
 
             preds = model.predict(X_test)
@@ -500,13 +499,13 @@ def train_lr(params):
         for fold_num in range(params.start_fold, num_folds + 1):
             X_train, X_test, y_train, y_test = load_fold_data(params.data, fold_num, params.feature, params.fold_indices_dir, params.property)
 
-            model = LinearRegression(solver = 'sgd').fit(X_train, y_train)
-            filename = os.path.join(params.save_dir, f'/models/lr/lr_fold{i}.sav')
+            model = LinearRegression().fit(X_train, y_train)
+            filename = os.path.join(params.save_dir, f'models/lr/lr_fold{fold_num}.sav')
             joblib.dump(model, filename)
 
             preds = model.predict(X_test)
             r2_list.append(r2_score(y_test, preds))
-            rmse_list.append(mean_squared_error(y_test, preds, squared = False))
+            rmse_list.append(np.sqrt(mean_squared_error(y_test, preds)))
 
         pd.DataFrame({'fold': np.arange(1, num_folds + 1), 
                   'test_r2': r2_list,
@@ -520,7 +519,7 @@ def train_lr(params):
             X_train, X_test, y_train, y_test = load_fold_data(params.data, fold_num, params.feature, params.fold_indices_dir, params.property)
 
             model = LogisticRegression(max_iter = 200).fit(X_train, y_train)
-            filename = os.path.join(params.save_dir, f'/models/lr/lr_fold{i}.sav')
+            filename = os.path.join(params.save_dir, f'models/lr/lr_fold{fold_num}.sav')
             joblib.dump(model, filename)
 
             preds = model.predict(X_test)

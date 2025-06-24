@@ -42,18 +42,24 @@ class VAEUtils(object):
             self.property_predictor = load_property_predictor(self.params)
 
         # Load data without normalization as dataframe
-        if 'data_file' in self.params:
-            df = pd.read_csv(self.params['data_file'])
-        elif ('train_data_file' in self.params) and ('test_data_file' in self.params):
-            tr_df = pd.read_csv(self.params['train_data_file'])
-            ts_df = pd.read_csv(self.params['test_data_file'])
-            df = pd.concat([tr_df, ts_df], ignore_index=True)
+        # Skip data loading if files don't exist (for inference only)
+        try:
+            if 'data_file' in self.params:
+                df = pd.read_csv(self.params['data_file'])
+            elif ('train_data_file' in self.params) and ('test_data_file' in self.params):
+                tr_df = pd.read_csv(self.params['train_data_file'])
+                ts_df = pd.read_csv(self.params['test_data_file'])
+                df = pd.concat([tr_df, ts_df], ignore_index=True)
 
-        df.iloc[:, 0] = df.iloc[:, 0].str.strip()
-        df = df[df.iloc[:, 0].str.len() <= self.params['MAX_LEN']]
-        self.smiles = df.iloc[:, 0].tolist()
-        if df.shape[1] > 1:
-            self.data = df.iloc[:, 1:]
+            df.iloc[:, 0] = df.iloc[:, 0].str.strip()
+            df = df[df.iloc[:, 0].str.len() <= self.params['MAX_LEN']]
+            self.smiles = df.iloc[:, 0].tolist()
+            if df.shape[1] > 1:
+                self.data = df.iloc[:, 1:]
+        except FileNotFoundError:
+            print("Warning: Training data files not found. Proceeding with inference-only mode.")
+            self.smiles = []
+            self.data = None
 
         self.estimate_estandarization()
         if directory is not None:
@@ -62,9 +68,19 @@ class VAEUtils(object):
 
     def estimate_estandarization(self):
         print('Standarization: estimating mu and std values ...', end='')
+        
+        # Skip standardization if no training data available
+        if len(self.smiles) == 0:
+            print('skipped (no training data available)')
+            # Use default standardization values
+            self.mu = np.zeros(self.params['hidden_dim'])
+            self.std = np.ones(self.params['hidden_dim'])
+            self.Z = None
+            return
+        
         # sample Z space
-
-        smiles = self.random_molecules(size=50000)
+        sample_size = min(50000, len(self.smiles))
+        smiles = self.random_molecules(size=sample_size)
         batch = 2500
         Z = np.zeros((len(smiles), self.params['hidden_dim']))
 

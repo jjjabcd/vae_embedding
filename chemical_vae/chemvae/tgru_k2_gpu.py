@@ -61,9 +61,10 @@ self.implementation ==1 : mem
 self.implementation ==0 : cpu
 
 '''
-from keras.layers.recurrent import GRU
-from keras import backend as K
-from keras.engine import InputSpec
+from tensorflow.keras.layers import GRU
+from tensorflow.keras import backend as K
+from tensorflow.keras.utils import get_custom_objects
+import tensorflow as tf
 import numpy as np
 
 if K.backend() == 'tensorflow':
@@ -95,6 +96,7 @@ class TerminalGRU(GRU):
 
         batch_size = input_shape[0] if self.stateful else None
         self.input_dim = input_shape[2]
+        from tensorflow.keras.layers import InputSpec
         self.input_spec = [InputSpec(shape=(batch_size, None, self.input_dim)),
                            InputSpec(shape=(batch_size, None, self.units))]
         self.state_spec = InputSpec(shape=(batch_size, self.units))
@@ -103,8 +105,8 @@ class TerminalGRU(GRU):
         if self.stateful:
             self.reset_states()
 
-        self.kernel = self.add_weight((self.input_dim, self.units * 3),
-                                      name='kernel',
+        self.kernel = self.add_weight(name='kernel',
+                                      shape=(self.input_dim, self.units * 3),
                                       initializer=self.kernel_initializer,
                                       regularizer=self.kernel_regularizer,
                                       constraint=self.kernel_constraint)
@@ -113,15 +115,15 @@ class TerminalGRU(GRU):
         # this last recurrent weight applied to true sequence input from prev. timestep,
         #   or sampled output from prev. time step.
         self.recurrent_kernel = self.add_weight(
-            (self.units, self.units * 4),
             name='recurrent_kernel',
+            shape=(self.units, self.units * 4),
             initializer=self.recurrent_initializer,
             regularizer=self.recurrent_regularizer,
             constraint=self.recurrent_constraint)
 
         if self.use_bias:
-            self.bias = self.add_weight((self.units * 4,),
-                                        name='bias',
+            self.bias = self.add_weight(name='bias',
+                                        shape=(self.units * 4,),
                                         initializer='zero',
                                         regularizer=self.bias_regularizer,
                                         constraint=self.bias_constraint)
@@ -183,11 +185,26 @@ class TerminalGRU(GRU):
         return constants
 
     def call(self, inputs, mask=None, training=None, initial_state=None):
-        if type(inputs) is not list or len(inputs) != 2:
+        # TensorFlow 2.x compatibility: handle different input formats
+        if type(inputs) is list and len(inputs) == 2:
+            X = inputs[0]
+            true_seq = inputs[1]
+        elif initial_state is not None and len(initial_state) == 1:
+            # TensorFlow 2.x passes the second input as initial_state
+            X = inputs
+            true_seq = initial_state[0]
+        else:
+            # Debug info for troubleshooting
+            print(f"[DEBUG] inputs type: {type(inputs)}")
+            print(f"[DEBUG] inputs shape: {inputs.shape if hasattr(inputs, 'shape') else 'N/A'}")
+            print(f"[DEBUG] initial_state: {initial_state}")
+            print(f"[DEBUG] initial_state type: {type(initial_state)}")
+            if initial_state is not None:
+                print(f"[DEBUG] initial_state length: {len(initial_state)}")
             raise Exception('terminal gru runs on list of length 2')
 
-        X = inputs[0]
-        true_seq = inputs[1]
+        X = X
+        true_seq = true_seq
 
         if self.stateful:
             initial_states = self.states
@@ -335,8 +352,13 @@ class TerminalGRU(GRU):
                 x_z = prev_layer_input[0, :, :self.units]
                 x_r = prev_layer_input[0, :, self.units: 2 * self.units]
                 x_h = prev_layer_input[0, :, 2 * self.units:]
+            elif self.implementation == 1:
+                # For implementation=1, input is already preprocessed in call()
+                x_z = prev_layer_input[0, :, :self.units]
+                x_r = prev_layer_input[0, :, self.units: 2 * self.units]
+                x_h = prev_layer_input[0, :, 2 * self.units:]
             else:
-                raise ValueError('Implementation type ' + self.implementation + ' is invalid')
+                raise ValueError('Implementation type ' + str(self.implementation) + ' is invalid')
 
             z = self.recurrent_activation(x_z + K.dot(h_tm1 * rec_dp_mask[0],
                                                       self.recurrent_kernel_z))
@@ -365,6 +387,11 @@ class TerminalGRU(GRU):
             prev_layer_input = h[0:1, :, :]
 
             if self.implementation == 0:
+                x_z = prev_layer_input[0, :, :self.units]
+                x_r = prev_layer_input[0, :, self.units: 2 * self.units]
+                x_h = prev_layer_input[0, :, 2 * self.units:]
+            elif self.implementation == 1:
+                # For implementation=1, input is already preprocessed in call()
                 x_z = prev_layer_input[0, :, :self.units]
                 x_r = prev_layer_input[0, :, self.units: 2 * self.units]
                 x_h = prev_layer_input[0, :, 2 * self.units:]

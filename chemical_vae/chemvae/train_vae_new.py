@@ -14,68 +14,71 @@ encoder and decoder portions of the network
 import argparse
 import numpy as np
 import tensorflow as tf
-config = tf.ConfigProto()
-config.gpu_options.per_process_gpu_memory_fraction = 0.5
-config.gpu_options.allow_growth = True
 import yaml
 import time
 import os
-os.environ['KERAS_BACKEND'] = 'tensorflow'
-from keras import backend as K
-from keras.models import Model
-from keras.optimizers import SGD, Adam, RMSprop
+
+# TensorFlow 2.x에서 Keras import 방식 변경
+from tensorflow import keras
+from tensorflow.keras import backend as K
+from tensorflow.keras.models import Model
+from tensorflow.keras.optimizers import SGD, Adam, RMSprop
+from tensorflow.keras.callbacks import CSVLogger
+from tensorflow.keras.layers import Lambda
+
 from chemvae import hyperparameters
 from chemvae import mol_utils as mu
 from chemvae import mol_callbacks as mol_cb
-from keras.callbacks import CSVLogger
 from chemvae.models import encoder_model, load_encoder
 from chemvae.models import decoder_model, load_decoder
 from chemvae.models import property_predictor_model, load_property_predictor
 from chemvae.models import variational_layers
 from functools import partial
-from keras.layers import Lambda
 
-from tensorflow.keras.backend import set_session
+# GPU 환경 설정 (TensorFlow 2.x 방식)
+print("[INFO] Setting up TensorFlow 2.x environment...")
 
-# CUDA 및 GPU 환경 설정
-print("[INFO] Setting up CUDA environment...")
-
-# CUDA 경로 설정 (TensorFlow 1.x용)
-cuda_dir = "/home/rlawlsgurjh/miniconda3/envs/chemvae/lib"
-os.environ['CUDA_HOME'] = cuda_dir
-os.environ['CUDA_VISIBLE_DEVICES'] = "0"  # GPU 0 사용
+# XLA JIT 컴파일 비활성화 (CUDA libdevice 문제 해결)
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # 경고 메시지 감소
+os.environ['TF_XLA_FLAGS'] = '--tf_xla_enable_xla_devices=false'
+os.environ['TF_ENABLE_XLA'] = '0'
+os.environ['TF_DISABLE_XLA'] = '1'
+os.environ['XLA_FLAGS'] = '--xla_gpu_cuda_data_dir=/home/rlawlsgurjh/miniconda3/envs/chemvae'
 
-print(f"[INFO] CUDA_HOME set to: {cuda_dir}")
-print(f"[INFO] CUDA_VISIBLE_DEVICES: {os.environ.get('CUDA_VISIBLE_DEVICES', 'Not set')}")
-
-# GPU 설정 및 확인
-print("[INFO] Checking GPU availability...")
 print("[INFO] TensorFlow version:", tf.__version__)
+print("[INFO] XLA JIT compilation disabled")
 
-# TensorFlow 1.x 방식으로 GPU 확인
-print("[INFO] Is GPU available?", tf.test.is_gpu_available())
+# TensorFlow JIT 컴파일 완전 비활성화
+tf.config.optimizer.set_jit(False)
+tf.config.optimizer.set_experimental_options({"auto_mixed_precision": False})
 
-config = tf.ConfigProto()
-config.gpu_options.allow_growth = True
-# GPU 메모리 사용량 제한을 늘림
-config.gpu_options.per_process_gpu_memory_fraction = 0.8
-# GPU 사용 강제
-config.allow_soft_placement = False
-config.log_device_placement = True  # 어떤 디바이스가 사용되는지 로그 출력
-
-sess = tf.Session(config=config)
-set_session(sess)
-
-# GPU 사용 여부 확인
-from keras import backend as K
+# XLA 관련 모든 최적화 비활성화
 try:
-    print("[INFO] Available GPUs for Keras:", K.tensorflow_backend._get_available_gpus())
+    tf.config.experimental.set_synchronous_execution(True)
 except:
-    print("[INFO] Could not get GPU info from Keras backend")
+    pass
 
-print("[INFO] Session created with GPU configuration")
-print("[INFO] CUDA environment setup completed")
+# TensorFlow 2.x 방식으로 GPU 설정 (XLA 비활성화)
+gpus = tf.config.list_physical_devices('GPU')
+if gpus:
+    try:
+        # GPU 메모리 growth 활성화
+        for gpu in gpus:
+            tf.config.experimental.set_memory_growth(gpu, True)
+        print(f"[INFO] Found {len(gpus)} GPU(s): {gpus}")
+        print("[INFO] GPU memory growth enabled")
+        
+        # 더 강력한 XLA 비활성화
+        tf.config.experimental.enable_op_determinism()
+        # Determinism을 위한 시드 설정
+        tf.random.set_seed(42)
+        
+    except RuntimeError as e:
+        print(f"[INFO] GPU setup error: {e}")
+else:
+    print("[INFO] No GPU found, using CPU")
+    
+print("[INFO] TensorFlow environment setup completed")
 
 
 def vectorize_data(params):
@@ -197,7 +200,7 @@ def vectorize_data(params):
 def load_models(params):
 
     def identity(x):
-        return K.identity(x)
+        return tf.identity(x)
 
     # def K_params with kl_loss_var
     kl_loss_var = K.variable(params['kl_loss_weight'])
@@ -264,7 +267,7 @@ def load_models(params):
 
 def kl_loss(truth_dummy, x_mean_log_var_output):
     x_mean, x_log_var = tf.split(x_mean_log_var_output, 2, axis=1)
-    print('x_mean shape in kl_loss: ', x_mean.get_shape())
+    print('x_mean shape in kl_loss: ', x_mean.shape)
     kl_loss = - 0.5 * \
         K.mean(1 + x_log_var - K.square(x_mean) -
               K.exp(x_log_var), axis=-1)
@@ -279,11 +282,11 @@ def main_no_prop(params):
 
     # compile models
     if params['optim'] == 'adam':
-        optim = Adam(lr=params['lr'], beta_1=params['momentum'])
+        optim = Adam(learning_rate=params['lr'], beta_1=params['momentum'])
     elif params['optim'] == 'rmsprop':
-        optim = RMSprop(lr=params['lr'], rho=params['momentum'])
+        optim = RMSprop(learning_rate=params['lr'], rho=params['momentum'])
     elif params['optim'] == 'sgd':
-        optim = SGD(lr=params['lr'], momentum=params['momentum'])
+        optim = SGD(learning_rate=params['lr'], momentum=params['momentum'])
     else:
         raise NotImplemented("Please define valid optimizer")
 
@@ -360,11 +363,11 @@ def main_property_run(params):
 
     # compile models
     if params['optim'] == 'adam':
-        optim = Adam(lr=params['lr'], beta_1=params['momentum'])
+        optim = Adam(learning_rate=params['lr'], beta_1=params['momentum'])
     elif params['optim'] == 'rmsprop':
-        optim = RMSprop(lr=params['lr'], rho=params['momentum'])
+        optim = RMSprop(learning_rate=params['lr'], rho=params['momentum'])
     elif params['optim'] == 'sgd':
-        optim = SGD(lr=params['lr'], momentum=params['momentum'])
+        optim = SGD(learning_rate=params['lr'], momentum=params['momentum'])
     else:
         raise NotImplemented("Please define valid optimizer")
 

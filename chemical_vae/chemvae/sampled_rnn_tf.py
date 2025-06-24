@@ -61,7 +61,7 @@ def sampled_rnn(step_function, inputs, initial_states, units, random_seed,
     import numpy as np
     np.random.seed(random_seed)
     import tensorflow as tf
-    tf.set_random_seed(random_seed)
+    tf.random.set_seed(random_seed)
     from tensorflow.python.ops import tensor_array_ops
     from tensorflow.python.ops import control_flow_ops
     from tensorflow.python.framework import constant_op
@@ -96,7 +96,7 @@ def sampled_rnn(step_function, inputs, initial_states, units, random_seed,
 
     num_samples = tf.shape(inputs)[1]
     output_dim = int(initial_states[0].get_shape()[-1])
-    random_cutoff_prob = tf.random_uniform(
+    random_cutoff_prob = tf.random.uniform(
         (num_samples,), minval=0., maxval=1.)
 
     # Ignore constants for the first run
@@ -127,7 +127,7 @@ def sampled_rnn(step_function, inputs, initial_states, units, random_seed,
             Tuple: `(time + 1,output_ta_t) + tuple(new_states)`
         """
         current_input = input_ta.read(time)
-        random_cutoff_prob = tf.random_uniform(
+        random_cutoff_prob = tf.random.uniform(
             (num_samples,), minval=0, maxval=1)
 
         output, new_states = step_function(current_input,
@@ -142,7 +142,7 @@ def sampled_rnn(step_function, inputs, initial_states, units, random_seed,
         output_ta_t = output_ta_t.write(time, output)
         return (time + 1, output_ta_t) + tuple(new_states)
 
-    final_outputs = control_flow_ops.while_loop(
+    final_outputs = tf.while_loop(
         cond=lambda time, *_: time < time_steps,
         body=_step,
         loop_vars=(time, output_ta) + states,

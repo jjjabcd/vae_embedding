@@ -1,7 +1,9 @@
 import sys
-sys.path.append('/home/ani/projects/chemical_vae/')
-sys.path.append('/home/ani/miniconda3/envs/chemvae/lib/python3.6/site-packages/rdkit/')
-sys.path.append('/home/ani/miniconda3/pkgs/xorg-libxrender-0.9.10-h516909a_1002/lib/')
+import os
+# Add the chemical_vae directory to Python path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+chemical_vae_path = os.path.join(current_dir, '../../chemical_vae')
+sys.path.append(chemical_vae_path)
 
 import pandas as pd
 import random
@@ -59,7 +61,7 @@ def get_vae_embeddings(smiles_list, model, include_dots = False):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--input', help = 'csv file containing unique molecules and fingerprints')
-    parser.add_argument('--vae_dir', help = 'Path to VAE model')
+    parser.add_argument('--model_dir', help = 'Path to VAE model directory')  # Changed from --vae_dir to --model_dir
     parser.add_argument('--output')
     args = parser.parse_args()
 
@@ -67,8 +69,8 @@ if __name__ == '__main__':
     #data_df['fingerprint'] = data_df['fingerprint'].apply(ast.literal_eval)
 
     print('Loading VAE model...')
-    print(args.vae_dir)
-    vae = VAEUtils(directory=args.vae_dir)
+    print(args.model_dir)
+    vae = VAEUtils(directory=args.model_dir)  # Changed from args.vae_dir to args.model_dir
 
     embeddings, invalid_smiles = get_vae_embeddings(data_df.smiles.values, vae)
 
