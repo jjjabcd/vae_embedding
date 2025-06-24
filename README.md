@@ -17,7 +17,6 @@ The original code was designed for TensorFlow 1.x, but we have updated it to wor
 
 #### 1. Create Conda Environment
 ```bash
-# Create environment based on DECIMER setup for better compatibility
 conda create -n chemvae python=3.9 -y
 conda activate chemvae
 
@@ -44,14 +43,6 @@ python -c "import tensorflow as tf; print('TensorFlow version:', tf.__version__)
 ```bash
 python -c "import tensorflow as tf; print('TensorFlow version:', tf.__version__); print('GPU devices:', tf.config.list_physical_devices('GPU'))"
 ```
-
-#### 3. Code Compatibility Updates
-The code has been updated for TensorFlow 2.x compatibility:
-- Updated import statements (`from keras` → `from tensorflow.keras`)
-- Fixed optimizer parameters (`lr` → `learning_rate`)
-- Resolved XLA/JIT compilation issues for modern GPUs
-- Updated RNN layer implementations
-- Fixed TensorFlow 2.x API changes
 
 ## Training
 For each specific downstream task, e.g. solubility prediction (LogS), the training process consists of three steps:
@@ -184,10 +175,22 @@ python src/test.py --experiment models/cv10_logS_6679_cvae_emb_logp_196_resnet -
 
 #### 1. TensorFlow 1.x Compatibility Issues
 **Problem:** Original code designed for TensorFlow 1.x may not work with modern setups.
+
 **Solution:** Use the updated environment setup with TensorFlow 2.14 as described above.
+
+Code Compatibility Updates
+
+The code has been updated for TensorFlow 2.x compatibility:
+- Updated import statements (`from keras` → `from tensorflow.keras`)
+- Fixed optimizer parameters (`lr` → `learning_rate`)
+- Resolved XLA/JIT compilation issues for modern GPUs
+- Updated RNN layer implementations
+- Fixed TensorFlow 2.x API changes
+
 
 #### 2. GPU Not Recognized
 **Problem:** GPU not being utilized during training.
+
 **Solution:** 
 - Verify CUDA installation: `nvidia-smi`
 - Check TensorFlow GPU detection: `python -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))"`
@@ -195,6 +198,7 @@ python src/test.py --experiment models/cv10_logS_6679_cvae_emb_logp_196_resnet -
 
 #### 3. XLA/JIT Compilation Errors
 **Problem:** Errors related to `libdevice.10.bc` or XLA compilation.
+
 **Solution:** 
 - Set the XLA environment variable with your correct conda path:
   ```bash
@@ -210,6 +214,7 @@ python src/test.py --experiment models/cv10_logS_6679_cvae_emb_logp_196_resnet -
 
 #### 4. Module Import Errors
 **Problem:** `ImportError` or module not found errors.
+
 **Solution:** 
 - Ensure you're in the correct directory (`chemical_vae` for CVAE)
 - Activate the conda environment: `conda activate chemvae`
@@ -217,6 +222,7 @@ python src/test.py --experiment models/cv10_logS_6679_cvae_emb_logp_196_resnet -
 
 #### 5. Memory Issues
 **Problem:** Out of memory errors during training.
+
 **Solution:** 
 - GPU memory growth is automatically enabled
 - Reduce batch size in `exp.json` if needed
