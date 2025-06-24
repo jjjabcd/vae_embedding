@@ -37,10 +37,45 @@ from keras.layers import Lambda
 
 from tensorflow.keras.backend import set_session
 
+# CUDA 및 GPU 환경 설정
+print("[INFO] Setting up CUDA environment...")
+
+# CUDA 경로 설정 (TensorFlow 1.x용)
+cuda_dir = "/home/rlawlsgurjh/miniconda3/envs/chemvae/lib"
+os.environ['CUDA_HOME'] = cuda_dir
+os.environ['CUDA_VISIBLE_DEVICES'] = "0"  # GPU 0 사용
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # 경고 메시지 감소
+
+print(f"[INFO] CUDA_HOME set to: {cuda_dir}")
+print(f"[INFO] CUDA_VISIBLE_DEVICES: {os.environ.get('CUDA_VISIBLE_DEVICES', 'Not set')}")
+
+# GPU 설정 및 확인
+print("[INFO] Checking GPU availability...")
+print("[INFO] TensorFlow version:", tf.__version__)
+
+# TensorFlow 1.x 방식으로 GPU 확인
+print("[INFO] Is GPU available?", tf.test.is_gpu_available())
+
 config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
+# GPU 메모리 사용량 제한을 늘림
+config.gpu_options.per_process_gpu_memory_fraction = 0.8
+# GPU 사용 강제
+config.allow_soft_placement = False
+config.log_device_placement = True  # 어떤 디바이스가 사용되는지 로그 출력
+
 sess = tf.Session(config=config)
 set_session(sess)
+
+# GPU 사용 여부 확인
+from keras import backend as K
+try:
+    print("[INFO] Available GPUs for Keras:", K.tensorflow_backend._get_available_gpus())
+except:
+    print("[INFO] Could not get GPU info from Keras backend")
+
+print("[INFO] Session created with GPU configuration")
+print("[INFO] CUDA environment setup completed")
 
 
 def vectorize_data(params):
@@ -284,7 +319,13 @@ def main_no_prop(params):
         metrics={'x_pred': ['categorical_accuracy',vae_anneal_metric]}
         )
 
-    keras_verbose = params['verbose_print']
+    keras_verbose = 1  # params['verbose_print'] - 강제로 1로 설정
+    print(f"[INFO] Starting no-property training with {params['epochs']} epochs...")
+    print(f"[INFO] Batch size: {params['batch_size']}")
+    print(f"[INFO] Training samples: {X_train.shape[0]}")
+    print(f"[INFO] Validation samples: {X_test.shape[0]}")
+    print("[INFO] Model compilation completed, starting training...")
+    print(f"[INFO] Will train from epoch {params['prev_epochs']} to {params['epochs']}")
 
     AE_only_model.fit(X_train, model_train_targets,
                     batch_size=params['batch_size'],
@@ -294,6 +335,8 @@ def main_no_prop(params):
                     verbose=keras_verbose,
                     validation_data=[ X_test, model_test_targets]
                     )
+                    
+    print("[INFO] Training completed! Saving models...")
 
     encoder.save(params['encoder_weights_file'])
     decoder.save(params['decoder_weights_file'])
@@ -303,12 +346,17 @@ def main_no_prop(params):
 
 def main_property_run(params):
     start_time = time.time()
+    print(f"[INFO] Starting main_property_run at {time.strftime('%Y-%m-%d %H:%M:%S')}")
 
     # load data
+    print("[INFO] Loading and vectorizing data...")
     X_train, X_test, Y_train, Y_test = vectorize_data(params)
+    print("[INFO] Data loading completed!")
 
     # load full models:
+    print("[INFO] Building models...")
     AE_only_model, AE_PP_model, encoder, decoder, property_predictor, kl_loss_var = load_models(params)
+    print("[INFO] Model building completed!")
 
     # compile models
     if params['optim'] == 'adam':
@@ -364,8 +412,13 @@ def main_property_run(params):
     def vae_anneal_metric(y_true, y_pred):
         return kl_loss_var
 
-    # control verbose output
-    keras_verbose = params['verbose_print']
+    # control verbose output - 강제로 1로 설정하여 학습 진행 상황 확인
+    keras_verbose = 1  # params['verbose_print']
+    print(f"[INFO] Starting training with {params['epochs']} epochs...")
+    print(f"[INFO] Batch size: {params['batch_size']}")
+    print(f"[INFO] Training samples: {X_train.shape[0]}")
+    print(f"[INFO] Validation samples: {X_test.shape[0]}")
+    print("[INFO] Model compilation completed, starting training...")
 
     if 'checkpoint_path' in params.keys():
         callbacks.append(mol_cb.EncoderDecoderCheckpoint(encoder, decoder,
@@ -378,6 +431,9 @@ def main_property_run(params):
                     vae_anneal_metric]})
 
 
+    print("[INFO] Starting model training...")
+    print(f"[INFO] Will train from epoch {params['prev_epochs']} to {params['epochs']}")
+    
     AE_PP_model.fit(X_train, model_train_targets,
                          batch_size=params['batch_size'],
                          epochs=params['epochs'],
@@ -386,6 +442,8 @@ def main_property_run(params):
                          verbose=keras_verbose,
          validation_data=[X_test, model_test_targets]
      )
+     
+    print("[INFO] Training completed! Saving models...")
 
     encoder.save(params['encoder_weights_file'])
     decoder.save(params['decoder_weights_file'])

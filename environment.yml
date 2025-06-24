@@ -1,20 +1,27 @@
 name: vae-emb
 channels:
+  - pytorch
+  - nvidia
   - rdkit
   - conda-forge
   - defaults
 dependencies:
-  - matplotlib=3.4.2
+  - python=3.8
   - numpy=1.19.2
   - pandas=1.3.2
-  - pip=21.1.3
-  - python=3.7.10
-  - rdkit=2020.09.1.0
-  - scikit-learn=0.24.2
-  - scipy=1.6.2
+  - matplotlib=3.4.2
   - seaborn=0.11.2
-  - setuptools=52.0.0
-  - tensorboard=1.14.0
-  - tensorflow=1.14.0
-  - tensorflow-gpu=1.14.0
-  - tqdm=4.61.2
+  - scikit-learn=1.0.0
+  - scipy=1.7.0
+  - rdkit=2021.09.4
+  - tqdm=4.62.0
+  - setuptools=58.0.4
+  - pip=21.2.4
+  - cudatoolkit=11.2
+  - pytorch=1.11.0
+  - torchvision=0.12.0
+  - torchaudio=0.11.0
+  - tensorflow-gpu=2.6.0
+  - tensorboard=2.6.0
+  - pip:
+    - torch-geometric

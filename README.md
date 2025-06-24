@@ -1,20 +1,20 @@
+# Generative Model Final Project
+
+## Codebase
+[vae-embeddings](https://github.com/znavoyan/vae-embeddings)
+
 ## Improving VAE based molecular representations for compound property prediction
 This repository contains training and inference codes for CVAE, PVAE and 1D ResNet architechture designed for downstream task, that are introduced in [Improving VAE based molecular representations for compound property prediction](https://arxiv.org/abs/2201.04929)
 
 In the paper we propose a simple method to improve chemical property prediction performance of machine learning models by incorporating additional information on correlated molecular descriptors in the representations learned by variational autoencoders.
 
-## Variational autoencoders
-
-In this work we have used two types of Variational autoencoders: 
-- **Chemical VAE** (or as shortly refered in this work: **CVAE**) - proposed by Gómez-Bombarelli et al. [Automatic Chemical Design Using a Data-Driven Continuous Representation of Molecules](https://doi.org/10.1021/ACSCENTSCI.7B00572]), [github](https://github.com/aspuru-guzik-group/chemical_vae). Only slight changes are made in the original code of CVAE.
-- **Penalized VAE** (or as shortly refered in this work: **PVAE**) - proposed by S. Mohammadi et al. [ Penalized Variational Autoencoder for Molecular Design](https://doi.org/10.26434/CHEMRXIV.7977131.V2), [github](https://github.com/InvincibleIRMan/pvae). As the codes do not contain the implementation of joint training with the property, we have implementated the functionality by ourselves.
-
 ## Installation
 For running the codes, you need to install a [conda](https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html) environment with all the required packages by running the following commands. Note that, for CVAE you need to use `environment_cvae.yml` file, while for the PVAE and the other codes - `environment.yml` file.
 ```
-git clone https://github.com/znavoyan/vae-fingerprints.git
-cd vae-fingerprints
+# pvae
 conda env create -f environment.yml
+
+# cvae
 conda env create -f environment_cvae.yml
 ```
 
@@ -40,7 +40,7 @@ cd pvae
 python train_prop.py -d ./models/zinc_logp_196/
 ```
 
-### Step 2: Extracting molecular embeddings
+### Step 2: Extracting molecular embeddings(pvae)
 In this step, by already having the pre-trained VAE model, we can encode the molecules from downstream task's dataset into high dimensional embeddings. The code below shows an example of getting embeddings for Solubility prediction dataset using PVAE trained with MolLogP property predictor:
 ```
 python src/fingerprints/pvae.py --input ../data/logS/processed/final_logS_6789.csv --model_dir ./pvae/models/zinc_logp_196/ --output ../data/logS/processed_with_pvae/final_logS_pvae_logp_196.csv

@@ -83,15 +83,10 @@ class TerminalGRU(GRU):
         # @param: temperature - sampling temperature
         # Annealing will be handled in the callbacks
         super(TerminalGRU, self).__init__(units, **kwargs)
-        self.units = units
         self.temperature = temperature
         self.rnd_seed = rnd_seed
-        self.uses_learning_phase = True
-        self.supports_masking = False
-        self.units = units
-        self.recurrent_dropout = min(1., max(0., recurrent_dropout))
-        self.input_spec = [InputSpec(ndim=3),
-                           InputSpec(ndim=3)]
+        # Store recurrent_dropout for later use, but don't try to set the property
+        self._custom_recurrent_dropout = min(1., max(0., recurrent_dropout))
 
     def build(self, input_shape):
         # all of this is copied from GRU, except for one part commented below
@@ -172,12 +167,12 @@ class TerminalGRU(GRU):
 
     def get_constants(self, inputs, training=None):
         constants = []
-        if 0. < self.recurrent_dropout < 1.:
+        if 0. < self._custom_recurrent_dropout < 1.:
             ones = K.ones_like(K.reshape(inputs[:, 0, 0], (-1, 1)))
             ones = K.tile(ones, (1, self.units))
 
             def dropped_inputs():
-                return K.dropout(ones, self.recurrent_dropout)
+                return K.dropout(ones, self._custom_recurrent_dropout)
 
             rec_dp_mask = [K.in_train_phase(dropped_inputs,
                                             ones,
@@ -187,7 +182,7 @@ class TerminalGRU(GRU):
             constants.append([K.cast_to_floatx(1.) for _ in range(3)])
         return constants
 
-    def call(self, inputs, mask=None):
+    def call(self, inputs, mask=None, training=None, initial_state=None):
         if type(inputs) is not list or len(inputs) != 2:
             raise Exception('terminal gru runs on list of length 2')
 
@@ -202,7 +197,11 @@ class TerminalGRU(GRU):
         # preprocessing makes input into right form for gpu/cpu settings
         # from original GRU code
         recurrent_dropout_constants = self.get_constants(X)[0]
-        preprocessed_input = self.preprocess_input(X)
+        # Manually preprocess input since preprocess_input doesn't exist in newer Keras
+        preprocessed_input = K.dot(X, self.kernel)
+        if self.use_bias:
+            # Only use the first 3 * units components of bias for preprocessing
+            preprocessed_input = K.bias_add(preprocessed_input, self.bias[:self.units * 3])
 
         #################
         ## Section for index matching of true inputs
@@ -313,7 +312,7 @@ class TerminalGRU(GRU):
         initial_states = states['initial_states']
         random_cutoff_vec = states['random_cutoff_prob']
 
-        if self.recurrent_dropout > 0:
+        if self._custom_recurrent_dropout > 0:
             rec_dp_mask = states['rec_dp_mask']
         else:
             rec_dp_mask = np.array([1., 1., 1., 1.], dtype='float32')
